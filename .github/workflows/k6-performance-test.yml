@@ -22,4 +22,5 @@ jobs:
       - name: Run k6 performance test
         uses: grafana/run-k6-action@v1
         with:
-          path: ./cloud-test.js
+          path: ./bottleneck-demo.js
+          debug: true
