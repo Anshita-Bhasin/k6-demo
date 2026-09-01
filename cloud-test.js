@@ -30,7 +30,7 @@ export const options = {
   },
 };
 
-const baseUrl = __ENV.BASE_URL || 'https://jsonplaceholder.typicode.com';
+const baseUrl = __ENV.BASE_URL;
 
 const createPayload = JSON.stringify({
   title: 'My New Post',

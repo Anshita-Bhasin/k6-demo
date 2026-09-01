@@ -11,7 +11,7 @@ on:
 jobs:
   run-k6-test:
     runs-on: ubuntu-latest
-
+    environment: staging
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -21,6 +21,11 @@ jobs:
 
       - name: Run k6 performance test
         uses: grafana/run-k6-action@v1
+        env:
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+          K6_CLOUD_STACK: ${{ vars.K6_CLOUD_STACK }}
         with:
           path: ./bottleneck-demo.js
-          debug: true
+          debug: 
+          cloud-run-locally: true 
+          flags: --env BASE_URL=${{ vars.BASE_URL }}  
