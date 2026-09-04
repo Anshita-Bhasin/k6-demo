@@ -19,13 +19,18 @@ jobs:
       - name: Set up k6
         uses: grafana/setup-k6-action@v1
 
-      - name: Run k6 performance test
-        uses: grafana/run-k6-action@v1
+      - name: Log in to Grafana Cloud k6
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
-          K6_CLOUD_STACK: ${{ vars.K6_CLOUD_STACK }}
+          K6_CLOUD_STACK: ${{ vars.K6_CLOUD_STACK_SLUG }}
+        run: >
+          k6 cloud login
+          --token "$K6_CLOUD_TOKEN"
+          --stack "$K6_CLOUD_STACK_SLUG"
+
+      - name: Run k6 performance test
+        uses: grafana/run-k6-action@v1
         with:
-          path: ./bottleneck-demo.js
-          debug: 
-          cloud-run-locally: true 
-          flags: --env BASE_URL=${{ vars.BASE_URL }}  
+          path: ./cloud-test.js
+          cloud-run-locally: true
+          flags: --env BASE_URL=${{ vars.BASE_URL }}
