@@ -12,6 +12,7 @@ jobs:
   run-k6-test:
     runs-on: ubuntu-latest
     environment: staging
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -26,9 +27,9 @@ jobs:
         run: >
           k6 cloud login
           --token "$K6_CLOUD_TOKEN"
-          --stack "$K6_CLOUD_STACK_SLUG"
+          --stack "$K6_CLOUD_STACK"
 
-      - name: Run k6 performance test
+      - name: Run k6 performance test 
         uses: grafana/run-k6-action@v1
         with:
           path: ./cloud-test.js
