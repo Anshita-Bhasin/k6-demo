@@ -8,6 +8,11 @@ on:
     branches:
       - main
 
+  schedule: 
+    - cron: '15 2 * * 1'   
+    
+  workflow_dispatch: 
+
 jobs:
   run-k6-test:
     runs-on: ubuntu-latest
