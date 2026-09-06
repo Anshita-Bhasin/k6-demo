@@ -29,9 +29,9 @@ jobs:
           --token "$K6_CLOUD_TOKEN"
           --stack "$K6_CLOUD_STACK"
 
-      - name: Run k6 performance test 
-        uses: grafana/run-k6-action@v1
-        with:
-          path: ./cloud-test.js
-          cloud-run-locally: true
-          flags: --env BASE_URL=${{ vars.BASE_URL }}
+      - name: Run k6 test and send results to Grafana Cloud
+        run: >
+          k6 cloud run
+          --local-execution
+          --env BASE_URL="${{ vars.BASE_URL }}"
+          ./cloud-test.js
