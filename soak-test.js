@@ -1,5 +1,7 @@
 import http from 'k6/http';
 import { sleep, check } from 'k6';
+import { runPostsFlow } from './helpers/api.js';
+
 
 export const options = {
   scenarios: {
@@ -30,38 +32,7 @@ export const options = {
   },
 };
 
-const baseUrl = __ENV.BASE_URL || 'https://jsonplaceholder.typicode.com';
-
-const createPayload = JSON.stringify({
-  title: 'My New Post',
-  body: 'This is the content of my post.',
-  userId: 1,
-});
-
-const params = {
-  headers: {
-    'Content-Type': 'application/json',
-  },
-};
-
 export default function () {
-  const browseResponse = http.get(`${baseUrl}/posts?_limit=5`);
-
-  const viewResponse = http.get(`${baseUrl}/posts/1`);
-
-  const createResponse = http.post(`${baseUrl}/posts`, createPayload, params);
-
-  check(browseResponse, {
-    'browse posts - status is 200': (r) => r.status === 200,
-  });
-
-  check(viewResponse, {
-    'view post - status is 200': (r) => r.status === 200,
-  });
-
-  check(createResponse, {
-    'create post - status is 201': (r) => r.status === 201,
-  });
-
+  runPostsFlow();
   sleep(1);
 }
