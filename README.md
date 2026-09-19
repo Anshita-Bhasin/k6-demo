@@ -1,63 +1,196 @@
-# k6 Demo 🚀
+# k6 Performance Testing Suite
 
-A collection of [k6](https://k6.io) load testing scripts covering the core performance testing patterns: smoke tests, load tests, stress tests, soak tests, and bottleneck diagnostics.
+This project contains a reusable k6 performance testing suite for load, stress, soak, and cloud tests.
 
-## Prerequisites
+It supports local execution, Grafana Cloud execution, and CI-based performance validation through GitHub Actions.
 
-Install k6:
+## Project Layout
 
-```bash
-# macOS
-brew install k6
-
-# Docker
-docker pull grafana/k6
+```text
+k6-demo/
+├── helpers/
+│   ├── api.js
+│   └── suite.js
+├── load-test.js
+├── stress-test.js
+├── soak-test.js
+├── cloud-test.js
+├── bottleneck-demo.js
+├── README.md
+└── .github/
+    └── workflows/
+        └── k6-performance-test.yml
 ```
 
-## Scripts
+### What each file does
 
-| Script | Pattern | What it does |
-|---|---|---|
-| [`script.js`](script.js) | Smoke test | 30 constant VUs for 30s against a single endpoint — quick sanity check. |
-| [`load-test.js`](load-test.js) | Load test | Ramps 0 → 10 → 0 VUs over 2 minutes to verify normal-traffic behavior. |
-| [`stress-test.js`](stress-test.js) | Stress test | Ramps 0 → 20 → 40 → 60 → 80 → 0 VUs to find the breaking point. |
-| [`soak-test.js`](soak-test.js) | Soak test | Holds 10 VUs steady for ~4 minutes to catch memory leaks / degradation over time. |
-| [`end-to-end.js`](end-to-end.js) | Journey test | Full CRUD flow — create, read, delete, verify — against a REST API. |
-| [`post_request.js`](post_request.js) | Journey test | Simplified create → get → delete → verify flow, 10 VUs for 5s. |
-| [`bottleneck-demo.js`](bottleneck-demo.js) | Diagnostics | Compares a fast endpoint against an artificially delayed one to surface latency bottlenecks. |
-| [`dashboard-comparison.js`](dashboard-comparison.js) | Diagnostics | Hits a delayed endpoint and a 500-error endpoint to populate dashboards with mixed signal. |
-| [`cloud-test.js`](cloud-test.js) | Cloud run | Ramping-VU scenario shaped for running on Grafana Cloud k6. |
+- `helpers/api.js` — reusable request flows (the "what" to test).
+- `helpers/suite.js` — reusable scenarios and thresholds (the "how hard" to test).
+- `load-test.js` — normal expected traffic.
+- `stress-test.js` — push past normal load to find the breaking point.
+- `soak-test.js` — sustained load over time, to catch leaks/degradation.
+- `cloud-test.js` — short scenario run against Grafana Cloud.
+- `bottleneck-demo.js` — standalone script showing a slow endpoint.
+- `.github/workflows/k6-performance-test.yml` — CI performance test workflow.
 
-Most scripts target [jsonplaceholder.typicode.com](https://jsonplaceholder.typicode.com) or [quickpizza.grafana.com](https://quickpizza.grafana.com), k6's recommended public test APIs.
+The test files follow a reusable pattern:
 
-## Running a script
+```text
+API Flow + Scenario + Thresholds
+            ↓
+        Test File
+            ↓
+     Local / Cloud / CI
+```
+
+Most test files don't define their own logic. They import a flow from `helpers/api.js` and a scenario/threshold set from `helpers/suite.js`, then wire the two together in `options`.
+
+This avoids duplicating the same requests, checks, scenarios, and thresholds across multiple test files. That's the pattern to follow for any new test.
+
+## Running a Test Locally
+
+To run the load test locally:
 
 ```bash
 k6 run load-test.js
 ```
 
-Override the target host where supported via the `BASE_URL` environment variable:
+You can run the other test configurations in the same way:
 
 ```bash
-BASE_URL=https://your-api.example.com k6 run load-test.js
+k6 run stress-test.js
 ```
-
-## Running in the cloud
 
 ```bash
-k6 cloud login
-k6 cloud run cloud-test.js
+k6 run soak-test.js
 ```
 
-## Thresholds
+## Using a Different Environment
 
-Most scripts enforce the same pass/fail criteria:
+The API base URL is provided through the `BASE_URL` environment variable.
 
-- `http_req_duration`: 95th percentile under 500ms
-- `http_req_failed`: error rate under 1%
+For example:
 
-k6 exits non-zero if a threshold is breached — handy for wiring into CI.
+```bash
+k6 run --env BASE_URL=https://staging.k6.com load-test.js
+```
 
-## Reading the results
+The reusable API module reads the value using:
 
-Each run prints a summary of key metrics (`avg`, `min`, `med`, `max`, `p90`, `p95`, `p99`). For richer visualization, stream results to [Grafana Cloud k6](https://k6.io/docs/results-output/real-time/cloud/) or a local Grafana + InfluxDB/Prometheus stack.
+```javascript
+__ENV.BASE_URL
+```
+
+This means the test scripts do not need to contain environment-specific URLs.
+
+If `BASE_URL` isn't set, tests fall back to a public demo API (`jsonplaceholder.typicode.com`), so you can run everything out of the box with no setup.
+
+## Extending the Test Suite
+
+When adding a new endpoint test, reuse the existing helper modules instead of creating a completely separate test structure.
+
+### Step 1: Add the API Flow
+
+Add the reusable API flow to:
+
+`helpers/api.js`
+
+For example:
+
+```javascript
+export function runUsersFlow() {
+  const listResponse = http.get(`${baseUrl}/users`);
+  const detailResponse = http.get(`${baseUrl}/users/1`);
+
+  check(listResponse, {
+    'list users - status is 200': (r) => r.status === 200,
+  });
+  check(detailResponse, {
+    'view user - status is 200': (r) => r.status === 200,
+  });
+}
+```
+
+The API behavior belongs in the helper module so it can be reused by different test configurations.
+
+### Step 2: Reuse a Scenario and Thresholds
+
+Scenarios and thresholds are defined in:
+
+`helpers/suite.js`
+
+Reuse an existing scenario when possible (or add a new one there, e.g. `scenarios.spike`) instead of redefining VUs, stages, or thresholds per file.
+
+If a new testing pattern is required, add the new scenario or threshold to `helpers/suite.js` instead of duplicating the configuration in multiple test files.
+
+### Step 3: Create the Test File
+
+Import the reusable API flow and shared configuration:
+
+```javascript
+import { sleep } from 'k6';
+import { runUsersFlow } from './helpers/api.js';
+import { scenarios, thresholds } from './helpers/suite.js';
+
+export const options = {
+  scenarios: { load: scenarios.load },
+  thresholds,
+};
+
+export default function () {
+  runUsersFlow();
+  sleep(1);
+}
+```
+
+That's it — no new boilerplate for stages, thresholds, or summary stats. The test file should focus on selecting the API flow and execution configuration rather than repeating shared logic.
+
+> **Note:** `soak-test.js` and `bottleneck-demo.js` predate this pattern and still inline their own logic. Treat them as the "before" example of what `helpers/` saves you from repeating.
+
+## Where to Run the Tests
+
+| Environment | Command |
+|---|---|
+| Local | `k6 run <file>.js` |
+| Grafana Cloud | `k6 cloud run --local-execution cloud-test.js` (needs `K6_CLOUD_TOKEN` + stack slug) |
+| CI | `.github/workflows/k6-performance-test.yml` — runs on push/PR to `main`, on a weekly schedule, and on manual dispatch, using the `staging` environment's `BASE_URL` and cloud secrets |
+
+## Grafana Cloud
+
+The test can be executed locally while sending the results to Grafana Cloud.
+
+Run:
+
+```bash
+k6 cloud run --local-execution cloud-test.js
+```
+
+With `--local-execution`, the test runs on the local machine while the results are streamed to Grafana Cloud.
+
+Make sure the k6 CLI is authenticated with your Grafana Cloud account before running cloud tests.
+
+## GitHub Actions
+
+Performance tests are also integrated into GitHub Actions.
+
+The workflow is located at:
+
+`.github/workflows/k6-performance-test.yml`
+
+It runs on push/PR to `main`, on a weekly schedule, and on manual dispatch, using the `staging` environment's `BASE_URL` and cloud secrets. It provides the required environment configuration, runs the k6 performance test, and uses the configured thresholds to validate performance.
+
+The workflow can be used for automated performance validation as part of the development workflow.
+
+## The Reusable Pattern
+
+When adding a new performance test, follow this pattern:
+
+1. Add reusable API behavior to `helpers/api.js`.
+2. Add or reuse scenarios and thresholds in `helpers/suite.js`.
+3. Create a small test file that imports the shared modules.
+4. Pass environment-specific values through `BASE_URL`.
+5. Run the test locally, through Grafana Cloud, or through CI.
+
+The goal is to keep API behavior, test configuration, and execution concerns separated.
+
+This makes the performance-testing suite easier to maintain, reuse, and extend across teams.
