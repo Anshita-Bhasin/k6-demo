@@ -1,18 +1,11 @@
-import http from 'k6/http';
 import { sleep, check } from 'k6';
 import { runPostsFlow } from './helpers/api.js';
+import { scenarios, thresholds } from './helpers/suite.js';
+
 
 export const options = {
   scenarios: {
-    cloud_demo: {
-      executor: 'ramping-vus',
-      startVUs: 0,
-      stages: [
-        { duration: '10s', target: 10 },
-        { duration: '20s', target: 12 },
-        { duration: '10s', target: 0 },
-      ],
-    },
+    cloud_demo: scenarios.cloud
   },
 
   summaryTrendStats: [
@@ -25,12 +18,8 @@ export const options = {
     'p(99)',
   ],
 
-  thresholds: {
-    http_req_duration: ['p(95)<500'],
-    http_req_failed: ['rate<0.01'],
-  },
+  thresholds: thresholds,
 };
-
 
 export default function () {
   runPostsFlow();
