@@ -1,7 +1,6 @@
 # k6 Performance Testing Suite
 
 This project contains a reusable k6 performance testing suite for load, stress, soak, and cloud tests.
-
 It supports local execution, Grafana Cloud execution, and CI-based performance validation through GitHub Actions.
 
 ## Project Layout
